@@ -5,3 +5,5 @@ weights/
 MNIST/
 
 logs/
+
+outputs/

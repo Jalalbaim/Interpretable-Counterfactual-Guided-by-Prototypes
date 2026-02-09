@@ -55,6 +55,7 @@ def main():
 
     data_iter = iter(test_loader)
     images, labels = next(data_iter)
+    print(len(images))
     index = random.randint(0, len(images)-1)
     print(f"Selected index: {index}")
     log_name = f'./logs/{date_str}_MNIST_{index}'
@@ -85,7 +86,7 @@ def main():
         cap=0.01,
         gamma=100,
         K=5,
-        max_iterations=1000,
+        max_iterations=5000,
         lr=1e-2,
         device=device,
         writer= writer
