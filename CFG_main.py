@@ -1,5 +1,6 @@
 """
 Counterfactuals Guided By Prototypes main function
+as described in the paper
 @author: BAIM M.J
 """
 
