@@ -1,0 +1,7 @@
+__pycache__/
+weights/
+.venv/
+
+MNIST/
+
+logs/
