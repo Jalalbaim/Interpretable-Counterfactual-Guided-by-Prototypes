@@ -5,6 +5,7 @@ This a basic implementation of the paper "Intrepretable Counterfactuals Guided b
 
 import torch
 import torch.optim as optim
+from tqdm import tqdm
 
 class Counterfactuals:
     def __init__(self, model, encoder, autoencoder=None, device=None):
@@ -156,10 +157,10 @@ class Counterfactuals:
         
     def algorithm_CGP(self, x_orig, data_tensor,
                       c=1.0,
-                      beta=0.01,
-                      theta=0.1,
+                      beta=0.1,
+                      theta=100,
                       cap=0.0,
-                      gamma=0.1,
+                      gamma=100,
                       K=5,
                       max_iterations=500,
                       lr=1e-2,
@@ -183,6 +184,7 @@ class Counterfactuals:
             data_preds = torch.cat(data_preds_list).cpu()
             data_tensor = data_tensor.cpu()
             orig_class = self.model(x_orig).argmax(dim=1).item()
+            print("Original class:", orig_class)
 
         class_samples = {int(cls.item()): data_tensor[data_preds == cls] for cls in torch.unique(data_preds)}
 
@@ -209,7 +211,7 @@ class Counterfactuals:
         perturbation = torch.zeros_like(x_orig, requires_grad=True)
         optimizer = optim.Adam([perturbation], lr=lr)
 
-        for iter_idx in range(max_iterations):
+        for iter_idx in tqdm(range(max_iterations)):
             torch.cuda.empty_cache()
             optimizer.zero_grad()
             cf_candidate = x_orig + perturbation

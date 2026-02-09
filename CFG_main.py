@@ -37,9 +37,9 @@ def main():
     #torch.cuda.empty_cache()
     #print("cache empty")
 
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    log_name = f'./logs/{date_str}_MNIST_NearestProto'
-    writer = SummaryWriter(log_dir=log_name)
+    # date and time
+    time = datetime.now().strftime("%H-%M-%S")
+    date_str = datetime.now().strftime("%Y-%m-%d") + f"_{time}"
 
     #data
     transform = transforms.Compose([
@@ -57,7 +57,9 @@ def main():
     images, labels = next(data_iter)
     index = random.randint(0, len(images)-1)
     print(f"Selected index: {index}")
-    log_name = log_name + f"_{index}"
+    log_name = f'./logs/{date_str}_MNIST_{index}'
+    writer = SummaryWriter(log_dir=log_name)
+
     x_orig = images[index].unsqueeze(0).to(device)
     train_data = torch.stack([image[0] for image in train_loader.dataset], dim=0).to(device)
 
@@ -103,8 +105,12 @@ def main():
     axes[1].set_title(f'Counterfactual - Class {pred_cf}')
     axes[1].axis('off')
 
-
     plt.show()
+
+    # save the figure
+    plt.savefig(f'./outputs/{date_str}_MNIST_NearestProto_{index}.png')
+    plt.close()
+
     writer.close()
 
 if __name__ == "__main__":
