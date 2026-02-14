@@ -121,6 +121,58 @@ class Counterfactuals:
         loss = c * L_pred + beta * (L1 + L2) + L_AE + Lproto
         return loss
 
+    def compute_all_prototypes(self, x_orig, class_samples, K=5, method=None):
+        """
+        Compute ALL K prototypes for each class (for visualization purposes).
+        Returns a dict: {class_label: list_of_prototypes}
+        """
+        all_prototypes = {}
+        x_orig = x_orig.to(self.device)
+
+        with torch.no_grad():
+            self.encoder.eval()
+            x_orig_enc = self.encoder(x_orig).detach()
+        x_orig_flat = x_orig_enc.flatten(1)
+
+        if method is None:
+            for cls, samples in class_samples.items():
+                with torch.no_grad():
+                    samples = samples.to(self.device)
+                    encodings = self.encoder(samples).detach()
+
+                expanded = x_orig_enc.expand_as(encodings)
+                dists = torch.norm((encodings - expanded).flatten(1), dim=1)
+                nearest_indices = dists.argsort()[:K]
+                nearest_encodings = encodings[nearest_indices]
+                # Return all K prototypes as a list
+                all_prototypes[cls] = [nearest_encodings[i] for i in range(len(nearest_encodings))]
+
+            return all_prototypes
+
+        if method == "kmeans":
+            for cls, samples in class_samples.items():
+                with torch.no_grad():
+                    samples = samples.to(self.device)
+                    encodings = self.encoder(samples).detach()
+
+                flat_encodings = encodings.flatten(1)
+                num_samples = flat_encodings.shape[0]
+                n_clusters = min(K, num_samples)
+
+                if KMeans is not None:
+                    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+                    centers_np = kmeans.fit(flat_encodings.detach().cpu().numpy()).cluster_centers_
+                    centers = torch.from_numpy(centers_np).to(flat_encodings.device, dtype=flat_encodings.dtype)
+                else:
+                    centers = self._kmeans_torch(flat_encodings, n_clusters, seed=42)
+
+                # Return all K centroids as a list
+                all_prototypes[cls] = [centers[i].reshape_as(x_orig_enc.squeeze(0)) for i in range(n_clusters)]
+
+            return all_prototypes
+
+        raise ValueError(f"Unsupported prototype method: {method}")
+
     def compute_prototypes(self, x_orig, class_samples, K=5, method=None):
         """
         Compute prototypes for each class based on the samples provided.
