@@ -158,6 +158,9 @@ def main():
     plt.annotate("", xy=(cf_proj[0], cf_proj[1]), xytext=(orig_proj[0], orig_proj[1]), arrowprops=dict(arrowstyle="-", lw=1, color="darkred"))
 
     plt.title(f"Latent Space ({reducer_name.upper()}) method={method} K={args.k} idx={index}")
+    # cmap = tab10
+    plt.set_cmap("tab10")
+    plt.colorbar()
     plt.legend(loc="best")
     plt.tight_layout()
 
