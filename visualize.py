@@ -84,7 +84,7 @@ def main():
     x_orig = test_dataset[index][0].unsqueeze(0).to(device)
 
     subset = min(args.subset, len(train_dataset))
-    train_data = torch.stack([train_dataset[i][0][0] for i in range(subset)], dim=0).to(device)
+    train_data = torch.stack([train_dataset[i][0] for i in range(subset)], dim=0).to(device)
 
     cf_gen = Counterfactuals(model, encoder, autoencoder, device=device)
     x_counterfactual, details = cf_gen.algorithm_CGP(
@@ -119,13 +119,15 @@ def main():
 
     predicted_labels_t = torch.from_numpy(predicted_labels)
     class_samples = {cls: train_data[predicted_labels_t == cls] for cls in np.unique(predicted_labels)}
-    prototypes = cf_gen.compute_prototypes(x_orig, class_samples, K=args.k, method=method)
+    # Use compute_all_prototypes to get ALL K prototypes per class
+    all_prototypes = cf_gen.compute_all_prototypes(x_orig, class_samples, K=args.k, method=method)
 
     proto_vectors = []
     proto_classes = []
-    for cls, proto in prototypes.items():
-        proto_vectors.append(proto.flatten().detach().cpu().numpy())
-        proto_classes.append(cls)
+    for cls, proto_list in all_prototypes.items():
+        for proto in proto_list:
+            proto_vectors.append(proto.flatten().detach().cpu().numpy())
+            proto_classes.append(cls)
 
     all_vectors = np.concatenate(
         [
@@ -150,10 +152,10 @@ def main():
 
     plt.figure(figsize=(10, 8))
     plt.scatter(train_proj[:, 0], train_proj[:, 1], c=predicted_labels, cmap="tab10", alpha=0.4, s=10)
-    plt.scatter(proto_proj[:, 0], proto_proj[:, 1], c=proto_classes, cmap="tab10", marker="X", s=180, edgecolors="black", linewidths=0.8, label="Class prototypes")
+    plt.scatter(proto_proj[:, 0], proto_proj[:, 1], c=proto_classes, cmap="tab10", marker="d", s=100, edgecolors="black", linewidths=0.5, label="Class prototypes")
     plt.scatter(orig_proj[0], orig_proj[1], c="black", marker="o", s=140, label="x_orig")
     plt.scatter(cf_proj[0], cf_proj[1], c="red", marker="*", s=240, label="x_counterfactual")
-    plt.annotate("", xy=(cf_proj[0], cf_proj[1]), xytext=(orig_proj[0], orig_proj[1]), arrowprops=dict(arrowstyle="->", lw=2, color="darkred"))
+    plt.annotate("", xy=(cf_proj[0], cf_proj[1]), xytext=(orig_proj[0], orig_proj[1]), arrowprops=dict(arrowstyle="-", lw=1, color="darkred"))
 
     plt.title(f"Latent Space ({reducer_name.upper()}) method={method} K={args.k} idx={index}")
     plt.legend(loc="best")

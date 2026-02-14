@@ -20,8 +20,8 @@ from models.Autoencoder import AutoEncoder
 from models.Model_MNIST import Model
 
 # Prototypes method configuration
-PROTO_METHOD = None  # None or "kmeans"
-K_CLUSTERS = 5
+PROTO_METHOD = "kmeans"  # None or "kmeans"
+K_CLUSTERS = 3
 
 
 def set_seed(seed=42):
