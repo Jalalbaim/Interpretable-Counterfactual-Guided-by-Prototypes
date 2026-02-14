@@ -7,6 +7,11 @@ import torch
 import torch.optim as optim
 from tqdm import tqdm
 
+try:
+    from sklearn.cluster import KMeans
+except ImportError:
+    KMeans = None
+
 class Counterfactuals:
     def __init__(self, model, encoder, autoencoder=None, device=None):
         """
@@ -75,6 +80,40 @@ class Counterfactuals:
             loss = theta*diff.mean()
             return loss
 
+    def _kmeans_torch(self, data, K, num_iters=100, seed=42):
+        """
+        Minimal PyTorch KMeans fallback for data of shape [N, D].
+        Returns centers of shape [K, D].
+        """
+        generator = torch.Generator(device=data.device)
+        generator.manual_seed(seed)
+
+        num_samples = data.shape[0]
+        K = min(K, num_samples)
+        initial_idx = torch.randperm(num_samples, generator=generator, device=data.device)[:K]
+        centers = data[initial_idx].clone()
+
+        for _ in range(num_iters):
+            distances = torch.cdist(data, centers)
+            assignments = torch.argmin(distances, dim=1)
+
+            updated_centers = []
+            for cluster_idx in range(K):
+                cluster_points = data[assignments == cluster_idx]
+                if cluster_points.numel() == 0:
+                    replacement_idx = torch.randint(0, num_samples, (1,), generator=generator, device=data.device).item()
+                    updated_centers.append(data[replacement_idx])
+                else:
+                    updated_centers.append(cluster_points.mean(dim=0))
+            new_centers = torch.stack(updated_centers, dim=0)
+
+            if torch.allclose(new_centers, centers, atol=1e-6):
+                centers = new_centers
+                break
+            centers = new_centers
+
+        return centers
+
     def total_Loss(self, c, L_pred, beta, L1, L2, L_AE, Lproto):
         """
         loss = c * L_pred + beta * (L1 + L2) + L_AE + L_proto
@@ -88,16 +127,17 @@ class Counterfactuals:
         If method is None, use the nearest K samples to the original input.
         If method is 'kmeans', use K the number of clusters.
         """
-        if method is None:
-            prototypes = {}
-            # Move x_orig to the same device as the encoder
-            x_orig = x_orig.to(self.device)
-            x_orig_enc = self.encoder(x_orig).detach()
+        prototypes = {}
+        x_orig = x_orig.to(self.device)
 
+        with torch.no_grad():
+            self.encoder.eval()
+            x_orig_enc = self.encoder(x_orig).detach()
+        x_orig_flat = x_orig_enc.flatten(1)
+
+        if method is None:
             for cls, samples in class_samples.items():
                 with torch.no_grad():
-                    self.encoder.eval()
-                    # Move samples to the same device as the encoder
                     samples = samples.to(self.device)
                     encodings = self.encoder(samples).detach()
 
@@ -109,8 +149,32 @@ class Counterfactuals:
 
                 if K < 10:
                     K += 1
+            return prototypes
+
+        if method == "kmeans":
+            for cls, samples in class_samples.items():
+                with torch.no_grad():
+                    samples = samples.to(self.device)
+                    encodings = self.encoder(samples).detach()
+
+                flat_encodings = encodings.flatten(1)
+                num_samples = flat_encodings.shape[0]
+                n_clusters = min(K, num_samples)
+
+                if KMeans is not None:
+                    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+                    centers_np = kmeans.fit(flat_encodings.detach().cpu().numpy()).cluster_centers_
+                    centers = torch.from_numpy(centers_np).to(flat_encodings.device, dtype=flat_encodings.dtype)
+                else:
+                    centers = self._kmeans_torch(flat_encodings, n_clusters, seed=42)
+
+                dist_to_orig = torch.norm(centers - x_orig_flat.squeeze(0), dim=1)
+                selected_center = centers[dist_to_orig.argmin()]
+                prototypes[cls] = selected_center.reshape_as(x_orig_enc.squeeze(0))
 
             return prototypes
+
+        raise ValueError(f"Unsupported prototype method: {method}")
     # def compute_prototypes(self, x_orig, class_samples, K=5, method=None):
     #     """
     #     Compute prototypes for each class based on the samples provided.
@@ -164,8 +228,10 @@ class Counterfactuals:
                       K=5,
                       max_iterations=500,
                       lr=1e-2,
+                      proto_method=None,
                       device=None,
-                      writer=None):
+                      writer=None,
+                      return_details=False):
 
         loss_history = []
 
@@ -191,7 +257,7 @@ class Counterfactuals:
         # 2. Compute prototypes by encoder
 
         x_orig_enc = self.encoder(x_orig).detach()
-        prototypes = self.compute_prototypes(x_orig, class_samples, K)
+        prototypes = self.compute_prototypes(x_orig, class_samples, K=K, method=proto_method)
 
         # 3 find prototype
         min_dist = float('inf')
@@ -211,6 +277,7 @@ class Counterfactuals:
         perturbation = torch.zeros_like(x_orig, requires_grad=True)
         optimizer = optim.Adam([perturbation], lr=lr)
 
+        final_iter = max_iterations - 1
         for iter_idx in tqdm(range(max_iterations)):
             torch.cuda.empty_cache()
             optimizer.zero_grad()
@@ -242,9 +309,20 @@ class Counterfactuals:
                 cf_pred_class = self.model(cf_candidate).argmax(dim=1).item()
                 if cf_pred_class == target_class: #and iter_idx == max_iterations - 1:
                     print(f"Counterfactual found at iteration {iter_idx}")
+                    final_iter = iter_idx
                     break
 
 
         final_cf = cf_candidate
+        if return_details:
+            details = {
+                "orig_class": orig_class,
+                "target_class": target_class,
+                "cf_class": self.model(final_cf).argmax(dim=1).item(),
+                "final_iteration": final_iter,
+                "final_loss": loss_history[-1] if loss_history else None,
+                "loss_history": loss_history,
+                "prototypes": prototypes,
+            }
+            return final_cf, details
         return final_cf
-
