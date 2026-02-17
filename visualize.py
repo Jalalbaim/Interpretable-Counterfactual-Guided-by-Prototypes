@@ -58,6 +58,8 @@ def main():
     args = parse_args()
     set_seed(42)
 
+    ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     method = None if args.method == "none" else args.method
 
@@ -117,6 +119,7 @@ def main():
         x_orig_enc = encoder(x_orig).flatten(1)
         x_cf_enc = encoder(x_counterfactual).flatten(1)
 
+
     predicted_labels_t = torch.from_numpy(predicted_labels)
     class_samples = {cls: train_data[predicted_labels_t == cls] for cls in np.unique(predicted_labels)}
     # Use compute_all_prototypes to get ALL K prototypes per class
@@ -150,22 +153,42 @@ def main():
     orig_proj = projected[n_train + n_proto]
     cf_proj = projected[n_train + n_proto + 1]
 
+    
+    with torch.no_grad():
+        pred_cf = model(x_counterfactual).argmax(dim=1).item()
+        pred_org = model(x_orig).argmax(dim=1).item()
+
+    # Saves
+
+    # save plot side by side of x_orig and x_counterfactual
+    fig, axes = plt.subplots(ncols=2, figsize=(6, 3))
+    axes[0].imshow(x_orig.detach().cpu().numpy()[0][0], cmap='gray')
+    axes[0].set_title(f'Original - Class {pred_org}')
+    axes[0].axis('off')
+
+    axes[1].imshow(x_counterfactual.detach().cpu().numpy()[0][0], cmap='gray')
+    axes[1].set_title(f'Counterfactual - Class {pred_cf}')
+    axes[1].axis('off')
+    
+    method_label = "nearest" if method is None else method
+    image_path = f'./outputs/{ts}_side_{method_label}_{pred_org}_to_{pred_cf}.png'
+    print(f"Saved side-by-side comparison to {image_path}")
+    plt.savefig(image_path)
+    plt.close()
+
     plt.figure(figsize=(10, 8))
     plt.scatter(train_proj[:, 0], train_proj[:, 1], c=predicted_labels, cmap="tab10", alpha=0.4, s=10)
     plt.scatter(proto_proj[:, 0], proto_proj[:, 1], c=proto_classes, cmap="tab10", marker="d", s=100, edgecolors="black", linewidths=0.5, label="Class prototypes")
-    # plt.scatter(orig_proj[0], orig_proj[1], c="black", marker="o", s=140, label="x_orig")
-    # plt.scatter(cf_proj[0], cf_proj[1], c="red", marker="*", s=240, label="x_counterfactual")
-    # plt.annotate("", xy=(cf_proj[0], cf_proj[1]), xytext=(orig_proj[0], orig_proj[1]), arrowprops=dict(arrowstyle="-", lw=1, color="darkred"))
+    plt.scatter(orig_proj[0], orig_proj[1], c="black", marker="o", s=140, label="x_orig")
+    plt.scatter(cf_proj[0], cf_proj[1], c="red", marker="*", s=240, label="x_counterfactual")
+    plt.annotate("", xy=(cf_proj[0], cf_proj[1]), xytext=(orig_proj[0], orig_proj[1]), arrowprops=dict(arrowstyle="-", lw=1, color="darkred"))
 
     plt.title(f"Latent Space ({reducer_name.upper()}) method={method} K={args.k} idx={index}")
-    # cmap = tab10
     plt.set_cmap("tab10")
     plt.colorbar()
     plt.legend(loc="best")
     plt.tight_layout()
 
-    ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    method_label = "nearest" if method is None else method
     out_path = f"./outputs/{ts}_latent_space_{method_label}_K{args.k}_idx{index}.png"
     plt.savefig(out_path, dpi=180)
     plt.close()
