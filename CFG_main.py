@@ -25,8 +25,8 @@ from utils.ae_io import load_ae, load_class_aes
 # Prototypes method configuration
 PROTO_METHOD = "kmeans"  # None or "kmeans"
 K_CLUSTERS = 3
-AE_CHECKPOINT_DIR = "./weights/mnist"
-AE_GLOBAL_CHECKPOINT = f"{AE_CHECKPOINT_DIR}/ae_global.pt"
+AE_CHECKPOINT_DIR = "./weights"
+AE_GLOBAL_CHECKPOINT = "./weights/autoencoder_mnist.pth"
 
 
 def set_seed(seed=42):
@@ -68,13 +68,14 @@ def main():
     train_dataset = datasets.MNIST(root='./', train=True, download=True, transform=transform)
     test_dataset = datasets.MNIST(root='./', train=False, download=True, transform=transform)
 
-    train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=16, shuffle=True)
 
     data_iter = iter(test_loader)
     images, labels = next(data_iter)
     print(len(images))
     index = random.randint(0, len(images) - 1)
+    #index = 10
     print(f"Selected index: {index}")
     log_name = f'./logs/{date_str}_MNIST_{index}_{PROTO_METHOD}_K{K_CLUSTERS}'
     writer = SummaryWriter(log_dir=log_name)

@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--out_dir", type=str, default="./weights/mnist")
+    parser.add_argument("--out_dir", type=str, default="./weights")
     return parser.parse_args()
 
 
@@ -68,6 +68,7 @@ def main():
 
     labels = train_dataset.targets
     for digit in range(10):
+        print(f"Training class-specific AE for digit {digit}")
         indices = (labels == digit).nonzero(as_tuple=False).squeeze(1).tolist()
         class_dataset = Subset(train_dataset, indices)
         class_loader = DataLoader(class_dataset, batch_size=args.batch_size, shuffle=True)
