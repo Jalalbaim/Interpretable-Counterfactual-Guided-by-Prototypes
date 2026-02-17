@@ -16,12 +16,17 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision import datasets, transforms
 
 from algorithm import Counterfactuals
+from metrics.IM1 import compute_im1
+from metrics.IM2 import compute_im2
 from models.Autoencoder import AutoEncoder
 from models.Model_MNIST import Model
+from utils.ae_io import load_ae, load_class_aes
 
 # Prototypes method configuration
 PROTO_METHOD = "kmeans"  # None or "kmeans"
 K_CLUSTERS = 3
+AE_CHECKPOINT_DIR = "./weights"
+AE_GLOBAL_CHECKPOINT = "./weights/autoencoder_mnist.pth"
 
 
 def set_seed(seed=42):
@@ -63,13 +68,14 @@ def main():
     train_dataset = datasets.MNIST(root='./', train=True, download=True, transform=transform)
     test_dataset = datasets.MNIST(root='./', train=False, download=True, transform=transform)
 
-    train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=16, shuffle=True)
 
     data_iter = iter(test_loader)
     images, labels = next(data_iter)
     print(len(images))
     index = random.randint(0, len(images) - 1)
+    #index = 10
     print(f"Selected index: {index}")
     log_name = f'./logs/{date_str}_MNIST_{index}_{PROTO_METHOD}_K{K_CLUSTERS}'
     writer = SummaryWriter(log_dir=log_name)
@@ -125,6 +131,17 @@ def main():
         pred_cf = model_trained(x_counterfactual).argmax(dim=1).item()
         pred_org = model_trained(x_orig).argmax(dim=1).item()
 
+    im1_value = None
+    im2_value = None
+    try:
+        ae_all = load_ae(AE_GLOBAL_CHECKPOINT, device)
+        class_aes = load_class_aes(AE_CHECKPOINT_DIR, device)
+        im1_value = compute_im1(x_counterfactual, class_aes[pred_cf], class_aes[pred_org], reduction="mean").item()
+        im2_value = compute_im2(x_counterfactual, class_aes[pred_cf], ae_all, reduction="mean").item()
+        print(f"IM1: {im1_value:.6f} | IM2: {im2_value:.6f}")
+    except FileNotFoundError as exc:
+        print(f"Skipped IM1/IM2 computation: {exc}")
+
     # Plot side by side
     fig, axes = plt.subplots(ncols=2, figsize=(6, 3))
     axes[0].imshow(x_orig.detach().cpu().numpy()[0][0], cmap='gray')
@@ -148,6 +165,8 @@ def main():
         "hyperparameters": run_hparams,
         "iterations_until_found": details["final_iteration"],
         "final_loss": details["final_loss"],
+        "im1": im1_value,
+        "im2": im2_value,
         "saved_image": image_path,
     }
 

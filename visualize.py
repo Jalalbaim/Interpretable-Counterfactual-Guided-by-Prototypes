@@ -48,9 +48,9 @@ def build_reducer(random_state=42):
 def parse_args():
     parser = argparse.ArgumentParser(description="Visualize latent space with prototypes and counterfactuals")
     parser.add_argument("--index", type=int, default=None, help="MNIST test index. Random if omitted.")
-    parser.add_argument("--method", type=str, default="kmeans", choices=["none", "kmeans"], help="Prototype method")
-    parser.add_argument("--k", type=int, default=3, help="K for nearest/kmeans prototypes")
-    parser.add_argument("--subset", type=int, default=2000, help="Number of train samples for embedding")
+    parser.add_argument("--method", type=str, default="none", choices=["none", "kmeans"], help="Prototype method")
+    parser.add_argument("--k", type=int, default=1, help="K for nearest/kmeans prototypes")
+    parser.add_argument("--subset", type=int, default=4000, help="Number of train samples for embedding")
     return parser.parse_args()
 
 
@@ -153,9 +153,9 @@ def main():
     plt.figure(figsize=(10, 8))
     plt.scatter(train_proj[:, 0], train_proj[:, 1], c=predicted_labels, cmap="tab10", alpha=0.4, s=10)
     plt.scatter(proto_proj[:, 0], proto_proj[:, 1], c=proto_classes, cmap="tab10", marker="d", s=100, edgecolors="black", linewidths=0.5, label="Class prototypes")
-    plt.scatter(orig_proj[0], orig_proj[1], c="black", marker="o", s=140, label="x_orig")
-    plt.scatter(cf_proj[0], cf_proj[1], c="red", marker="*", s=240, label="x_counterfactual")
-    plt.annotate("", xy=(cf_proj[0], cf_proj[1]), xytext=(orig_proj[0], orig_proj[1]), arrowprops=dict(arrowstyle="-", lw=1, color="darkred"))
+    # plt.scatter(orig_proj[0], orig_proj[1], c="black", marker="o", s=140, label="x_orig")
+    # plt.scatter(cf_proj[0], cf_proj[1], c="red", marker="*", s=240, label="x_counterfactual")
+    # plt.annotate("", xy=(cf_proj[0], cf_proj[1]), xytext=(orig_proj[0], orig_proj[1]), arrowprops=dict(arrowstyle="-", lw=1, color="darkred"))
 
     plt.title(f"Latent Space ({reducer_name.upper()}) method={method} K={args.k} idx={index}")
     # cmap = tab10
@@ -176,3 +176,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# python .\visualize.py --index 3  --method kmeans --k 3 --subset 4000
