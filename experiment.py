@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-"""Reproduce Figure 3 (a,b,c) for MNIST from
-"Interpretable Counterfactual Explanations Guided by Prototypes".
-
-Run:
-    python experiment.py --out figure3.png
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -26,12 +18,10 @@ from torch import Tensor
 from torchvision import datasets, transforms
 from tqdm import tqdm
 
-# ========================= PROJECT-SPECIFIC IMPORTS ==========================
-# If your project uses different modules/checkpoint names, edit ONLY this block.
+
 from models.Autoencoder import AutoEncoder
 from models.Model_MNIST import Model
 from utils.ae_io import load_ae, load_class_aes
-# ============================================================================
 
 
 METHODS = ["A", "B", "C", "D", "E", "F"]
@@ -338,9 +328,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--device", type=str, default="auto", choices=["auto", "cpu", "cuda"])
     p.add_argument("--weights-dir", type=Path, default=Path("weights"))
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--samples-per-class", type=int, default=50)
-    p.add_argument("--num-random-seeds", type=int, default=3)
-    p.add_argument("--max-updates", type=int, default=5000)
+    p.add_argument("--samples-per-class", type=int, default=6)
+    p.add_argument("--num-random-seeds", type=int, default=1)
+    p.add_argument("--max-updates", type=int, default=500)
     p.add_argument("--lr", type=float, default=1e-2)
     p.add_argument("--clip-min", type=float, default=0.0)
     p.add_argument("--clip-max", type=float, default=1.0)
@@ -355,7 +345,6 @@ def main() -> None:
 
     f_pred, ae_all, ae_class, encoder = load_project_components(device, args.weights_dir)
 
-    # MNIST preprocessing: use project default (ToTensor in this repo).
     test_ds = datasets.MNIST(root="./", train=False, download=True, transform=transforms.ToTensor())
     train_ds = datasets.MNIST(root="./", train=True, download=True, transform=transforms.ToTensor())
 
@@ -377,7 +366,7 @@ def main() -> None:
         "kappa": 0.0,
         "beta": 0.1,
         "gamma": 100.0,
-        "K": 5,
+        "K": 15,
     }
 
     records = []
