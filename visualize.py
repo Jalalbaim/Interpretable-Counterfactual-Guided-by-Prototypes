@@ -106,7 +106,7 @@ def main():
         return_details=True,
     )
 
-    # predicted labels for training subset (paper-like procedure)
+    # predicted labels for training subset
     with torch.no_grad():
         batch_size = 128
         preds = []
