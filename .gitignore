@@ -7,3 +7,7 @@ MNIST/
 logs/
 
 outputs/
+
+cifar-10-python.tar.gz
+
+cifar-10-batches-py/
