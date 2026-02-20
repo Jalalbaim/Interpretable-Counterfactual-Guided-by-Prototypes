@@ -320,6 +320,53 @@ def make_figure(summary: pd.DataFrame, out_path: Path) -> None:
     plt.close(fig)
 
 
+def make_qualitative_figure(
+    x0: Tensor,
+    method_results: Dict[str, CFRunResult],
+    ae_all: torch.nn.Module,
+    out_path: Path,
+) -> None:
+    """Create Figure-4 style panel:
+    first row contains original + counterfactuals for methods A..F,
+    second row contains AE reconstructions ("decoding").
+    """
+    ordered_methods = METHODS
+
+    with torch.no_grad():
+        panels_top = [x0.detach().cpu()]
+        panels_top.extend(method_results[m].x_cf.detach().cpu() for m in ordered_methods)
+
+        panels_bottom = [ae_all(x0).detach().cpu()]
+        panels_bottom.extend(ae_all(method_results[m].x_cf).detach().cpu() for m in ordered_methods)
+
+    n_cols = 1 + len(ordered_methods)
+    fig, axes = plt.subplots(2, n_cols, figsize=(1.5 * n_cols, 3.8))
+
+    panel_labels = ["(a)"] + [f"({chr(ord('b') + i)})" for i in range(len(ordered_methods))]
+
+    for col in range(n_cols):
+        ax_top = axes[0, col]
+        ax_bot = axes[1, col]
+
+        ax_top.imshow(panels_top[col][0, 0], cmap="gray", vmin=0.0, vmax=1.0)
+        ax_bot.imshow(panels_bottom[col][0, 0], cmap="gray", vmin=0.0, vmax=1.0)
+
+        ax_top.set_xticks([])
+        ax_top.set_yticks([])
+        ax_bot.set_xticks([])
+        ax_bot.set_yticks([])
+
+        if col == 0:
+            ax_top.set_ylabel("Counterfactual", fontsize=11)
+            ax_bot.set_ylabel("Decoding", fontsize=11)
+
+        ax_top.set_title(panel_labels[col], fontsize=14, pad=6)
+
+    plt.tight_layout(pad=0.4)
+    fig.savefig(out_path, dpi=220)
+    plt.close(fig)
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--out", type=Path, default=Path("figure3.png"))
@@ -334,6 +381,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--lr", type=float, default=1e-2)
     p.add_argument("--clip-min", type=float, default=0.0)
     p.add_argument("--clip-max", type=float, default=1.0)
+    p.add_argument("--qualitative-out", type=Path, default=None, help="Optional path for Figure-4-style qualitative panel.")
+    p.add_argument(
+        "--qualitative-index",
+        type=int,
+        default=None,
+        help="Optional test-set index for qualitative panel. If omitted, first sampled index is used.",
+    )
     return p.parse_args()
 
 
@@ -425,6 +479,36 @@ def main() -> None:
 
     make_figure(summary, args.out)
 
+    if args.qualitative_out is not None:
+        qual_idx = sampled_indices[0] if args.qualitative_index is None else int(args.qualitative_index)
+        if not (0 <= qual_idx < len(test_ds)):
+            raise ValueError(f"qualitative-index must be in [0, {len(test_ds)-1}], got {qual_idx}")
+
+        xq, _ = test_ds[qual_idx]
+        xq = xq.unsqueeze(0).to(device)
+        qual_seed = seed_list[0]
+
+        qual_runs: Dict[str, CFRunResult] = {}
+        for method in METHODS:
+            theta = 200.0 if method in {"C", "E"} else (100.0 if method in {"D", "F"} else 0.0)
+            qual_runs[method] = generator.generate(
+                x0=xq,
+                method=method,
+                seed=qual_seed,
+                c=hparams["c"],
+                kappa=hparams["kappa"],
+                beta=hparams["beta"],
+                gamma=hparams["gamma"],
+                theta=theta,
+                K=hparams["K"],
+                max_updates=args.max_updates,
+                lr=args.lr,
+                clip_min=args.clip_min,
+                clip_max=args.clip_max,
+            )
+
+        make_qualitative_figure(xq, qual_runs, ae_all, args.qualitative_out)
+
     raw_csv = args.summary_csv.with_name(args.summary_csv.stem + "_raw.csv")
     raw_df.to_csv(raw_csv, index=False)
     summary.to_csv(args.summary_csv, index=False)
@@ -450,6 +534,8 @@ def main() -> None:
     print(f"Saved raw records: {raw_csv}")
     print(f"Saved summary CSV: {args.summary_csv}")
     print(f"Saved summary JSON: {args.summary_json}")
+    if args.qualitative_out is not None:
+        print(f"Saved qualitative figure: {args.qualitative_out}")
 
 
 if __name__ == "__main__":
