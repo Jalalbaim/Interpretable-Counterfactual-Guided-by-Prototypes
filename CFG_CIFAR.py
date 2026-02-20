@@ -22,9 +22,6 @@ from models.AE_cifar import Autoencoder
 from models.Model_ciafr10 import get_model
 from utils.ae_io_cifar import load_ae, load_class_aes
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
 PROTO_METHOD = "kmeans"  # None or "kmeans"
 K_CLUSTERS = 3
 CLASSIFIER_NAME = "resnet18"  # "resnet18" or "resnet50"
@@ -60,7 +57,7 @@ def trained_model(model, autoencoder, weights_classif, weights_auto, device):
 
 
 def main():
-    set_seed(42)
+    #set_seed(42)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Using device:", device)
 
