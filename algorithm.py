@@ -359,10 +359,10 @@ class Counterfactuals:
 
             with torch.no_grad():
                 cf_pred_class = self.model(cf_candidate).argmax(dim=1).item()
-                if cf_pred_class == target_class: #and iter_idx == max_iterations - 1:
-                    print(f"Counterfactual found at iteration {iter_idx}")
-                    final_iter = iter_idx
-                    break
+                # if cf_pred_class == target_class: #and iter_idx == max_iterations - 1:
+                #     print(f"Counterfactual found at iteration {iter_idx}")
+                #     final_iter = iter_idx
+                #     break
 
 
         final_cf = cf_candidate

@@ -98,7 +98,7 @@ def main():
         cap=0.01,
         gamma=100,
         K=args.k,
-        max_iterations=3000,
+        max_iterations=500,
         lr=1e-2,
         proto_method=method,
         device=device,
