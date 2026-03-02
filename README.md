@@ -4,12 +4,12 @@ This repository provides a PyTorch implementation of the paper "Interpretable Co
 
 Paper: [https://arxiv.org/pdf/1907.02584](https://arxiv.org/pdf/1907.02584)
 
+
+![Counterfactual Explanations](utils/readme_img.png)
+
 ## Overview
 
 This implementation generates interpretable counterfactual explanations for image classification models using prototype-based guidance. The method combines autoencoders with prototype learning to produce plausible and class-representative counterfactual examples.
-
-
-![Counterfactual Explanations](utils/readme_img.png)
 
 
 ### Generating Counterfactuals
