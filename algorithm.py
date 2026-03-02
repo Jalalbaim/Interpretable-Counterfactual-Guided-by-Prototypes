@@ -75,8 +75,9 @@ class Counterfactuals:
             """
             L_proto = theta * || ENC(x_cf) - proto_j ||_p^2
             """
-            encoder_out = self.encoder(cf_input)
-            diff = torch.norm(encoder_out - proto, p=p, dim=1)**2
+            encoder_out = self.encoder(cf_input).flatten(1)
+            proto_flat = proto.flatten(1)
+            diff = torch.norm(encoder_out - proto_flat, p=p, dim=1)**2
             loss = theta*diff.mean()
             return loss
 

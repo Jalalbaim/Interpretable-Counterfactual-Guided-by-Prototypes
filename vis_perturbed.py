@@ -20,7 +20,7 @@ from utils.ae_io import load_ae
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Latent-space view for original/perturbed/recovered/prototype.")
     parser.add_argument("--index", type=int, default=0, help="MNIST test index")
-    parser.add_argument("--top-k", type=int, default=60, help="Number of highest-saliency pixels to black out")
+    parser.add_argument("--top-k", type=int, default=200, help="Number of highest-saliency pixels to black out")
     parser.add_argument("--weights-dir", type=Path, default=Path("weights"))
     parser.add_argument("--output", type=Path, default=Path("outputs/latent_perturbed.png"))
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")

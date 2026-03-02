@@ -14,16 +14,17 @@ from algorithm import Counterfactuals
 from models.Model_MNIST import Model
 from utils.ae_io import load_ae
 
+MODE = "original"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Saliency-based pixel removal followed by prototype-guided recovery (MNIST)."
     )
-    parser.add_argument("--index", type=int, default=0, help="MNIST test index")
-    parser.add_argument("--top-k", type=int, default=100, help="Number of highest-saliency pixels to remove")
+    parser.add_argument("--index", type=int, default=6, help="MNIST test index")
+    parser.add_argument("--top-k", type=int, default=200, help="Number of highest-saliency pixels to remove")
     parser.add_argument("--weights-dir", type=Path, default=Path("weights"), help="Directory with checkpoints")
-    parser.add_argument("--output", type=Path, default=Path("outputs/pixel_selection_panel.png"), help="Path to save 4-panel figure")
+    parser.add_argument("--output", type=Path, default=Path(f"outputs/pixel_selection_panel_{MODE}.png"), help="Path to save 4-panel figure")
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--k-proto", type=int, default=15, help="Number of nearest neighbors to build prototype")
@@ -146,7 +147,45 @@ def recover_to_original_class(
         return torch.clamp(x_start + perturbation, 0.0, 1.0)
 
 # add a function recover to the closest class
+def recover_to_closest_class(
+    cf_algo: Counterfactuals,
+    x_start: Tensor,
+    target_class: int,
+    target_proto: Tensor,
+    *,
+    c: float,
+    beta: float,
+    theta: float,
+    cap: float,
+    gamma: float,
+    max_iterations: int,
+    lr: float,
+) -> Tensor:
+    perturbation = torch.zeros_like(x_start, requires_grad=True)
+    optimizer = torch.optim.Adam([perturbation], lr=lr)
 
+    for _ in tqdm(range(max_iterations), desc="Recovering"):
+        optimizer.zero_grad()
+        x_candidate = torch.clamp(x_start + perturbation, 0.0, 1.0)
+
+        logits = cf_algo.model(x_candidate)
+        target_logit = logits[:, target_class]
+        mask = torch.ones(logits.shape[1], dtype=torch.bool, device=logits.device)
+        mask[target_class] = False
+        max_other = logits[:, mask].max(dim=1).values
+        l_pred = torch.clamp(max_other - target_logit, min=-cap).mean()
+
+        l1, l2 = cf_algo.loss_l1_l2(perturbation)
+        l_ae = cf_algo.loss_ae(x_candidate, gamma=gamma)
+        l_proto = cf_algo.loss_proto(x_candidate, target_proto, theta=theta)
+        loss = cf_algo.total_Loss(c, l_pred, beta, l1, l2, l_ae, l_proto)
+
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_([perturbation], max_norm=1.0)
+        optimizer.step()
+
+    with torch.no_grad():
+        return torch.clamp(x_start + perturbation, 0.0, 1.0)
 
 def main() -> None:
     args = parse_args()
@@ -182,19 +221,35 @@ def main() -> None:
     closest_proto = find_closest_prototype(encoder, x_perturbed, class_samples, args.k_proto)
 
     cf_algo = Counterfactuals(model, encoder, ae_all, device=device)
-    x_recovered = recover_to_original_class(
-        cf_algo,
-        x_perturbed,
-        orig_class,
-        closest_proto,
-        c=args.c,
-        beta=args.beta,
-        theta=args.theta,
-        cap=args.cap,
-        gamma=args.gamma,
-        max_iterations=args.max_iterations,
-        lr=args.lr,
-    )
+
+    if MODE == "original":
+        x_recovered = recover_to_original_class(
+            cf_algo,
+            x_perturbed,
+            orig_class,
+            closest_proto,
+            c=args.c,
+            beta=args.beta,
+            theta=args.theta,
+            cap=args.cap,
+            gamma=args.gamma,
+            max_iterations=args.max_iterations,
+            lr=args.lr,
+        )
+    elif MODE == "closest":
+        x_recovered = recover_to_closest_class(
+            cf_algo,
+            x_perturbed,
+            orig_class,
+            closest_proto,
+            c=args.c,
+            beta=args.beta,
+            theta=args.theta,
+            cap=args.cap,
+            gamma=args.gamma,
+            max_iterations=args.max_iterations,
+            lr=args.lr,
+        )
 
     with torch.no_grad():
         perturbed_class = int(model(x_perturbed).argmax(dim=1).item())
