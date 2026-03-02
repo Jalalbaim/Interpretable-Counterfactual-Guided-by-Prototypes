@@ -21,7 +21,7 @@ def parse_args() -> argparse.Namespace:
         description="Saliency-based pixel removal followed by prototype-guided recovery (MNIST)."
     )
     parser.add_argument("--index", type=int, default=0, help="MNIST test index")
-    parser.add_argument("--top-k", type=int, default=60, help="Number of highest-saliency pixels to remove")
+    parser.add_argument("--top-k", type=int, default=100, help="Number of highest-saliency pixels to remove")
     parser.add_argument("--weights-dir", type=Path, default=Path("weights"), help="Directory with checkpoints")
     parser.add_argument("--output", type=Path, default=Path("outputs/pixel_selection_panel.png"), help="Path to save 4-panel figure")
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
@@ -93,10 +93,14 @@ def find_closest_prototype(
     k_proto: int,
 ) -> Tensor:
     with torch.no_grad():
-        z_ref = encoder(x_ref).flatten(1)
-        z_samples = encoder(class_samples).flatten(1)
-        dists = torch.cdist(z_ref, z_samples).squeeze(0)
+        z_ref = encoder(x_ref)
+        z_samples = encoder(class_samples)
+        # Flatten only for distance computation
+        z_ref_flat = z_ref.flatten(1)
+        z_samples_flat = z_samples.flatten(1)
+        dists = torch.cdist(z_ref_flat, z_samples_flat).squeeze(0)
         nn_idx = torch.topk(dists, k=min(k_proto, len(dists)), largest=False).indices
+        # Average in original (unflattened) shape so it matches loss_proto
         proto = z_samples[nn_idx].mean(dim=0, keepdim=True)
     return proto
 
@@ -140,6 +144,8 @@ def recover_to_original_class(
 
     with torch.no_grad():
         return torch.clamp(x_start + perturbation, 0.0, 1.0)
+
+# add a function recover to the closest class
 
 
 def main() -> None:
@@ -205,7 +211,7 @@ def main() -> None:
     axes[0].axis("off")
 
     axes[1].imshow(saliency_np, cmap="hot")
-    axes[1].set_title("Saliency (|∂logit/∂x|)")
+    axes[1].set_title("Saliency")
     axes[1].axis("off")
 
     axes[2].imshow(x_perturbed.detach().cpu().squeeze().numpy(), cmap="gray")
