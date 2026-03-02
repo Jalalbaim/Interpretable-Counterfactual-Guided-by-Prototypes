@@ -6,7 +6,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from sklearn.decomposition import PCA
+
 from torch import Tensor
 from torchvision import datasets, transforms
 from tqdm import tqdm
@@ -190,8 +190,17 @@ def main() -> None:
         z_proto = closest_proto.cpu().numpy()
 
     all_latent = np.concatenate([z_bg, z_orig, z_pert, z_rec, z_proto], axis=0)
-    pca = PCA(n_components=2, random_state=args.seed)
-    proj = pca.fit_transform(all_latent)
+
+    try:
+        import umap
+        reducer_name = "umap"
+        reducer = umap.UMAP(n_components=2, random_state=args.seed)
+    except ImportError:
+        from sklearn.manifold import TSNE
+        reducer_name = "tsne"
+        reducer = TSNE(n_components=2, random_state=args.seed, init="pca", learning_rate="auto")
+
+    proj = reducer.fit_transform(all_latent)
 
     bg_proj = proj[:subset_n]
     orig_proj = proj[subset_n]
@@ -201,8 +210,8 @@ def main() -> None:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
-    plt.figure(figsize=(8, 6))
-    sc = plt.scatter(bg_proj[:, 0], bg_proj[:, 1], c=y_bg, cmap="tab10", alpha=0.25, s=10)
+    plt.figure(figsize=(10, 8))
+    sc = plt.scatter(bg_proj[:, 0], bg_proj[:, 1], c=y_bg, cmap="tab10", alpha=0.4, s=10)
     plt.scatter(orig_proj[0], orig_proj[1], c="black", marker="o", s=160, label="Original")
     plt.scatter(pert_proj[0], pert_proj[1], c="red", marker="x", s=180, label="Perturbed")
     plt.scatter(rec_proj[0], rec_proj[1], c="limegreen", marker="*", s=220, label="Recovered")
@@ -212,9 +221,7 @@ def main() -> None:
     plt.annotate("", xy=(rec_proj[0], rec_proj[1]), xytext=(pert_proj[0], pert_proj[1]), arrowprops={"arrowstyle": "->", "lw": 1.2, "color": "green"})
     plt.annotate("", xy=(proto_proj[0], proto_proj[1]), xytext=(rec_proj[0], rec_proj[1]), arrowprops={"arrowstyle": "->", "lw": 1.0, "color": "blue"})
 
-    plt.title("Latent space (PCA): original vs perturbed vs recovered vs prototype")
-    plt.xlabel("PC1")
-    plt.ylabel("PC2")
+    plt.title(f"Latent space ({reducer_name.upper()}): original vs perturbed vs recovered vs prototype")
     plt.colorbar(sc, label="Predicted class (train subset)")
     plt.legend(loc="best")
     plt.tight_layout()

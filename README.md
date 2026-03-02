@@ -8,68 +8,11 @@ Paper: [https://arxiv.org/pdf/1907.02584](https://arxiv.org/pdf/1907.02584)
 
 This implementation generates interpretable counterfactual explanations for image classification models using prototype-based guidance. The method combines autoencoders with prototype learning to produce plausible and class-representative counterfactual examples.
 
-## Features
 
-- Prototype-based counterfactual generation using k-means clustering
-- Autoencoder-based plausibility constraints
-- Support for MNIST dataset
-- Interpretability metrics (IM1 and IM2)
-- Visualization tools for latent space exploration
-- TensorBoard integration for training monitoring
-
-## Requirements
-
-Install the required dependencies:
-
-```bash
-pip install -r requirements.txt
+```markdown
+![Counterfactual Explanations](outputs/readme_img.png)
 ```
 
-Dependencies include:
-
-- PyTorch
-- torchvision
-- matplotlib
-- tqdm
-- scikit-learn
-
-## Project Structure
-
-```
-.
-├── algorithm.py                    # Core counterfactual generation algorithm
-├── CFG_main.py                     # Main execution script
-├── train_class_aes_mnist.py        # Train class-specific autoencoders
-├── train_global_ae_mnist.py        # Train global autoencoder
-├── visualize.py                    # Visualization utilities
-├── models/
-│   ├── Autoencoder.py              # Autoencoder architecture
-│   └── Model_MNIST.py              # MNIST classifier
-├── metrics/
-│   ├── IM1.py                      # Interpretability metric 1
-│   └── IM2.py                      # Interpretability metric 2
-├── utils/
-│   └── ae_io.py                    # Autoencoder I/O utilities
-├── weights/                        # Model checkpoints
-├── logs/                           # Training logs
-└── outputs/                        # Generated visualizations
-```
-
-## Usage
-
-### Training
-
-1. Train the global autoencoder:
-
-```bash
-python train_global_ae_mnist.py
-```
-
-2. Train class-specific autoencoders:
-
-```bash
-python train_class_aes_mnist.py
-```
 
 ### Generating Counterfactuals
 
@@ -86,13 +29,7 @@ Configuration options in `CFG_main.py`:
 - `AE_CHECKPOINT_DIR`: Directory containing model checkpoints
 - `AE_GLOBAL_CHECKPOINT`: Path to global autoencoder checkpoint
 
-### Visualization
 
-Visualize counterfactual results and latent space using TSNE:
-
-```bash
-python visualize.py
-```
 
 ## Algorithm
 

@@ -21,7 +21,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Saliency-based pixel removal followed by prototype-guided recovery (MNIST)."
     )
-    parser.add_argument("--index", type=int, default=6, help="MNIST test index")
+    parser.add_argument("--index", type=int, default=0, help="MNIST test index")
     parser.add_argument("--top-k", type=int, default=200, help="Number of highest-saliency pixels to remove")
     parser.add_argument("--weights-dir", type=Path, default=Path("weights"), help="Directory with checkpoints")
     parser.add_argument("--output", type=Path, default=Path(f"outputs/pixel_selection_panel_{MODE}.png"), help="Path to save 4-panel figure")
