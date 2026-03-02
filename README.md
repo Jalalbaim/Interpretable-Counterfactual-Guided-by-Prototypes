@@ -9,9 +9,7 @@ Paper: [https://arxiv.org/pdf/1907.02584](https://arxiv.org/pdf/1907.02584)
 This implementation generates interpretable counterfactual explanations for image classification models using prototype-based guidance. The method combines autoencoders with prototype learning to produce plausible and class-representative counterfactual examples.
 
 
-```markdown
-![Counterfactual Explanations](outputs/readme_img.png)
-```
+![Counterfactual Explanations](utils/readme_img.png)
 
 
 ### Generating Counterfactuals
